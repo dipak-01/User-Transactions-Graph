@@ -412,5 +412,3 @@ user-transaction-graph/
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-# User-Transactions-Graph
-# User-Transactions-Graph
