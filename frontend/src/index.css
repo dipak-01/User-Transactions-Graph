@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #6366f1;
+  --secondary-color: #818cf8;
+  --background-color: #0f172a;
+  --surface-color: #111827;
+  --surface-elevated-color: #1f2937;
+  --muted-color: #94a3b8;
+  --text-color: #e2e8f0;
+}
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  margin: 0;
+  padding: 0;
+}
+
+/* Graph visualization styling */
+.graph-container {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+}
+
+/* Custom Cytoscape styling will be applied in JavaScript */
