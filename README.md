@@ -67,8 +67,6 @@ docker-compose exec backend \
   bash -lc "USER_COUNT=5000 TRANSACTION_COUNT=100000 BATCH_SIZE=2000 npm run generate-data"
 ```
 
-> **Note:** For large runs the script may bump `USER_COUNT` automatically to honor the per-user limits—check the console output for any warnings.
-
 What the script does on each run:
 
 1. Clears existing nodes and relationships in the connected Neo4j database.
@@ -76,11 +74,6 @@ What the script does on each run:
 3. Generates the requested number of transactions with shared IP/device patterns.
 4. Writes everything to Neo4j in batches (default 1,000 records at a time).
 
-Performance tips for large datasets (50k+ transactions):
-
-- Increase `BATCH_SIZE` (e.g., 2000–5000) if the database has enough memory.
-- Run against a Neo4j Aura instance or a local instance with at least 4 GB RAM.
-- Expect the 100k transaction run to take several minutes; keep the terminal attached until you see "✅ Database seeded successfully".
 
 ## API Documentation
 
