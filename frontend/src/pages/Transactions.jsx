@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaEdit, FaFilter, FaPlusCircle, FaSync } from "react-icons/fa";
+import {
+  FaEdit,
+  FaFilter,
+  FaPlusCircle,
+  FaSort,
+  FaSortDown,
+  FaSortUp,
+  FaSync,
+} from "react-icons/fa";
 import Modal from "../components/Modal";
 import {
   createTransaction,
@@ -41,6 +49,10 @@ function Transactions({ onEntitySelect }) {
   );
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formStatus, setFormStatus] = useState(null);
+  const [sortState, setSortState] = useState({
+    field: "timestamp",
+    order: "desc",
+  });
 
   const toDatetimeLocal = (value) => {
     if (!value) {
@@ -62,7 +74,11 @@ function Transactions({ onEntitySelect }) {
     loadTransactions(1);
   }, []);
 
-  const loadTransactions = async (page = 1, overrideFilters = filters) => {
+  const loadTransactions = async (
+    page = 1,
+    overrideFilters = filters,
+    sortOverride = sortState
+  ) => {
     setLoading(true);
     setError(null);
 
@@ -79,7 +95,8 @@ function Transactions({ onEntitySelect }) {
       const response = await getTransactions(
         page,
         ITEMS_PER_PAGE,
-        activeFilters
+        activeFilters,
+        sortOverride
       );
 
       setTransactions(Array.isArray(response?.data) ? response.data : []);
@@ -112,6 +129,28 @@ function Transactions({ onEntitySelect }) {
     }
 
     loadTransactions(targetPage);
+  };
+
+  const toggleSort = (field) => {
+    setSortState((prev) => {
+      const nextState = {
+        field,
+        order: prev.field === field && prev.order === "asc" ? "desc" : "asc",
+      };
+      loadTransactions(1, filters, nextState);
+      return nextState;
+    });
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortState.field !== field) {
+      return <FaSort className="text-slate-500" aria-hidden="true" />;
+    }
+    return sortState.order === "asc" ? (
+      <FaSortUp className="text-indigo-300" aria-hidden="true" />
+    ) : (
+      <FaSortDown className="text-indigo-300" aria-hidden="true" />
+    );
   };
 
   const handleFilterChange = (event) => {
@@ -529,25 +568,74 @@ function Transactions({ onEntitySelect }) {
                 <thead className="bg-slate-900/80">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      ID
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("id")}
+                        className="flex items-center gap-1 text-slate-300 hover:text-white"
+                      >
+                        <span>ID</span>
+                        {renderSortIcon("id")}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Amount
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("amount")}
+                        className="flex items-center gap-1 text-slate-300 hover:text-white"
+                      >
+                        <span>Amount</span>
+                        {renderSortIcon("amount")}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Sender
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("senderId")}
+                        className="flex items-center gap-1 text-slate-300 hover:text-white"
+                      >
+                        <span>Sender</span>
+                        {renderSortIcon("senderId")}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Receiver
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("receiverId")}
+                        className="flex items-center gap-1 text-slate-300 hover:text-white"
+                      >
+                        <span>Receiver</span>
+                        {renderSortIcon("receiverId")}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      IP Address
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("ip")}
+                        className="flex items-center gap-1 text-slate-300 hover:text-white"
+                      >
+                        <span>IP Address</span>
+                        {renderSortIcon("ip")}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Device ID
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("deviceId")}
+                        className="flex items-center gap-1 text-slate-300 hover:text-white"
+                      >
+                        <span>Device ID</span>
+                        {renderSortIcon("deviceId")}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Timestamp
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("timestamp")}
+                        className="flex items-center gap-1 text-slate-300 hover:text-white"
+                      >
+                        <span>Timestamp</span>
+                        {renderSortIcon("timestamp")}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
                       Actions

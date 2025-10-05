@@ -6,16 +6,20 @@ async function getUsers(req, res, next) {
   try {
     const pageValue = req.query.page || 1;
     const limitValue = req.query.limit || 10;
-    const { name, email, phone } = req.query;
+  const { name, email, phone, sortField, sortOrder } = req.query;
 
-    const page = parseInt(pageValue, 10);
-    const limit = parseInt(limitValue, 10);
+  const page = parseInt(pageValue, 10);
+  const limit = parseInt(limitValue, 10);
 
-    const users = await userService.getUsers({
-      page,
-      limit,
-      filters: { name, email, phone },
-    });
+  const users = await userService.getUsers({
+    page,
+    limit,
+    filters: { name, email, phone },
+    sort: {
+      field: sortField,
+      order: sortOrder,
+    },
+  });
 
     if (!users || !users.data) {
       return res.json({

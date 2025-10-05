@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaEdit, FaFilter, FaSync, FaTimes, FaUserPlus } from "react-icons/fa";
+import {
+  FaEdit,
+  FaFilter,
+  FaSort,
+  FaSortDown,
+  FaSortUp,
+  FaSync,
+  FaTimes,
+  FaUserPlus,
+} from "react-icons/fa";
 import Modal from "../components/Modal";
 import { createOrUpdateUser, getUsers } from "../services/userService";
 
@@ -21,6 +30,7 @@ function Users({ onEntitySelect }) {
   );
   const [filters, setFilters] = useState(() => ({ ...filterDefaults }));
   const [activeFilters, setActiveFilters] = useState(() => ({}));
+  const [sortState, setSortState] = useState({ field: "name", order: "asc" });
   const emptyUser = {
     id: "",
     name: "",
@@ -57,7 +67,11 @@ function Users({ onEntitySelect }) {
     loadUsers(1);
   }, []);
 
-  const loadUsers = async (page = 1, filtersOverride = activeFilters) => {
+  const loadUsers = async (
+    page = 1,
+    filtersOverride = activeFilters,
+    sortOverride = sortState
+  ) => {
     setLoading(true);
     setError(null);
 
@@ -68,7 +82,12 @@ function Users({ onEntitySelect }) {
         areFiltersEqual(prev, sanitizedFilters) ? prev : sanitizedFilters
       );
 
-      const response = await getUsers(page, ITEMS_PER_PAGE, sanitizedFilters);
+      const response = await getUsers(
+        page,
+        ITEMS_PER_PAGE,
+        sanitizedFilters,
+        sortOverride
+      );
 
       setUsers(Array.isArray(response?.data) ? response.data : []);
       setPagination(
@@ -134,6 +153,28 @@ function Users({ onEntitySelect }) {
     }
 
     loadUsers(targetPage);
+  };
+
+  const toggleSort = (field) => {
+    setSortState((prev) => {
+      const nextState = {
+        field,
+        order: prev.field === field && prev.order === "asc" ? "desc" : "asc",
+      };
+      loadUsers(1, activeFilters, nextState);
+      return nextState;
+    });
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortState.field !== field) {
+      return <FaSort className="text-slate-500" aria-hidden="true" />;
+    }
+    return sortState.order === "asc" ? (
+      <FaSortUp className="text-indigo-300" aria-hidden="true" />
+    ) : (
+      <FaSortDown className="text-indigo-300" aria-hidden="true" />
+    );
   };
 
   const openCreateModal = () => {
@@ -427,16 +468,44 @@ function Users({ onEntitySelect }) {
                 <thead className="bg-slate-900/80">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Name
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("name")}
+                        className="flex items-center gap-1 text-slate-300 hover:text-white"
+                      >
+                        <span>Name</span>
+                        {renderSortIcon("name")}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Email
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("email")}
+                        className="flex items-center gap-1 text-slate-300 hover:text-white"
+                      >
+                        <span>Email</span>
+                        {renderSortIcon("email")}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Phone
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("phone")}
+                        className="flex items-center gap-1 text-slate-300 hover:text-white"
+                      >
+                        <span>Phone</span>
+                        {renderSortIcon("phone")}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Address
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("address")}
+                        className="flex items-center gap-1 text-slate-300 hover:text-white"
+                      >
+                        <span>Address</span>
+                        {renderSortIcon("address")}
+                      </button>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
                       Actions

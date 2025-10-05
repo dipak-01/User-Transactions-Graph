@@ -13,7 +13,12 @@ const api = axios.create({
 });
 
 
-export const getTransactions = async (page = 1, limit = 10, filters = {}) => {
+export const getTransactions = async (
+  page = 1,
+  limit = 10,
+  filters = {},
+  sort = {}
+) => {
   try {
     const params = {
       page,
@@ -21,18 +26,27 @@ export const getTransactions = async (page = 1, limit = 10, filters = {}) => {
       ...filters,
     };
 
+    if (sort && typeof sort === "object") {
+      if (typeof sort.field === "string" && sort.field.trim() !== "") {
+        params.sortField = sort.field;
+      }
+      if (typeof sort.order === "string" && sort.order.trim() !== "") {
+        params.sortOrder = sort.order;
+      }
+    }
+
     const response = await api.get("/transactions", { params });
 
-     const defaultResponse = {
+    const defaultResponse = {
       data: [],
       pagination: { totalPages: 1, page: 1, limit, totalItems: 0 },
     };
 
-     if (!response.data || typeof response.data !== "object") {
+    if (!response.data || typeof response.data !== "object") {
       return defaultResponse;
     }
 
-     return {
+    return {
       data: Array.isArray(response.data.data) ? response.data.data : [],
       pagination: {
         totalPages: response.data.pagination?.totalPages || 1,
@@ -43,7 +57,7 @@ export const getTransactions = async (page = 1, limit = 10, filters = {}) => {
     };
   } catch (error) {
     console.error("Error fetching transactions:", error);
-     return {
+    return {
       data: [],
       pagination: { totalPages: 1, page, limit, totalItems: 0 },
     };

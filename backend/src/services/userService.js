@@ -3,7 +3,32 @@ const { runQuery } = require("../utils/neo4jDriver");
 
 //get list of users
 
-async function getUsers({ page = 1, limit = 10, filters = {} }) {
+const USER_SORT_MAP = {
+  name: "u.name",
+  email: "u.email",
+  phone: "u.phone",
+  address: "u.address",
+  id: "u.id",
+  createdAt: "u.createdAt",
+  updatedAt: "u.updatedAt",
+};
+
+function resolveUserSort(sort = {}) {
+  if (!sort || typeof sort !== "object") {
+    return { field: USER_SORT_MAP.name, direction: "ASC" };
+  }
+
+  const rawField = typeof sort.field === "string" ? sort.field.trim() : "";
+  const lowerField = rawField.toLowerCase();
+  const resolvedField = USER_SORT_MAP[lowerField] || USER_SORT_MAP.name;
+
+  const rawOrder = typeof sort.order === "string" ? sort.order.trim() : "";
+  const direction = rawOrder.toLowerCase() === "desc" ? "DESC" : "ASC";
+
+  return { field: resolvedField, direction };
+}
+
+async function getUsers({ page = 1, limit = 10, filters = {}, sort = {} }) {
   const parsedPage = parseInt(page, 10);
   const parsedLimit = parseInt(limit, 10);
   const pageInt = Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
@@ -38,7 +63,15 @@ async function getUsers({ page = 1, limit = 10, filters = {} }) {
     query += `WHERE ${whereConditions.join(" AND ")} `;
   }
 
-  query += "RETURN u ORDER BY u.id SKIP $skip LIMIT $limit";
+  const { field: sortField, direction: sortDirection } = resolveUserSort(sort);
+  const orderClauses = [`${sortField} ${sortDirection}`];
+  if (sortField !== "u.id") {
+    orderClauses.push("u.id ASC");
+  }
+
+  query += `RETURN u ORDER BY ${orderClauses.join(
+    ", "
+  )} SKIP $skip LIMIT $limit`;
 
   const records = await runQuery(query, params);
   const users = records.map((record) => record.get("u").properties);

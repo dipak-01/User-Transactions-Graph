@@ -3,7 +3,39 @@ const { runQuery } = require("../utils/neo4jDriver");
 
 // get list of transactions
 
-async function getTransactions({ page = 1, limit = 10, filters = {} }) {
+const TRANSACTION_SORT_MAP = {
+  id: "t.id",
+  amount: "t.amount",
+  senderid: "t.senderId",
+  receiverid: "t.receiverId",
+  ip: "t.ip",
+  deviceid: "t.deviceId",
+  timestamp: "t.timestamp",
+  createdat: "t.createdAt",
+};
+
+function resolveTransactionSort(sort = {}) {
+  if (!sort || typeof sort !== "object") {
+    return { field: TRANSACTION_SORT_MAP.timestamp, direction: "DESC" };
+  }
+
+  const rawField = typeof sort.field === "string" ? sort.field.trim() : "";
+  const lowerField = rawField.toLowerCase();
+  const resolvedField =
+    TRANSACTION_SORT_MAP[lowerField] || TRANSACTION_SORT_MAP.timestamp;
+
+  const rawOrder = typeof sort.order === "string" ? sort.order.trim() : "";
+  const direction = rawOrder.toLowerCase() === "asc" ? "ASC" : "DESC";
+
+  return { field: resolvedField, direction };
+}
+
+async function getTransactions({
+  page = 1,
+  limit = 10,
+  filters = {},
+  sort = {},
+}) {
   const parsedPage = parseInt(page, 10);
   const parsedLimit = parseInt(limit, 10);
   const pageInt = Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
@@ -44,7 +76,16 @@ async function getTransactions({ page = 1, limit = 10, filters = {} }) {
     query += `WHERE ${whereConditions.join(" AND ")} `;
   }
 
-  query += "RETURN t ORDER BY t.timestamp DESC SKIP $skip LIMIT $limit";
+  const { field: sortField, direction: sortDirection } =
+    resolveTransactionSort(sort);
+  const orderClauses = [`${sortField} ${sortDirection}`];
+  if (sortField !== "t.id") {
+    orderClauses.push("t.id ASC");
+  }
+
+  query += `RETURN t ORDER BY ${orderClauses.join(
+    ", "
+  )} SKIP $skip LIMIT $limit`;
 
   const records = await runQuery(query, params);
   const transactions = records.map((record) => record.get("t").properties);

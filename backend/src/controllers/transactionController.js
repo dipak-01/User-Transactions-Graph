@@ -6,7 +6,8 @@ async function getTransactions(req, res, next) {
   try {
     const pageValue = req.query.page || 1;
     const limitValue = req.query.limit || 10;
-    const { minAmount, maxAmount, ip, deviceId } = req.query;
+    const { minAmount, maxAmount, ip, deviceId, sortField, sortOrder } =
+      req.query;
 
     const page = parseInt(pageValue, 10);
     const limit = parseInt(limitValue, 10);
@@ -19,6 +20,10 @@ async function getTransactions(req, res, next) {
         maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
         ip,
         deviceId,
+      },
+      sort: {
+        field: sortField,
+        order: sortOrder,
       },
     });
 
