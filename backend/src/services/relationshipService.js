@@ -12,7 +12,7 @@ async function getUserRelationships(userId) {
     OPTIONAL MATCH (sender:User)-[:DEBIT]->(received:Transaction)<-[:CREDIT]-(u)
     WITH u, sentTransactions, collect(distinct {transaction: received, counterparty: sender}) as receivedTransactions
 
-    OPTIONAL MATCH (u)-[sharedRel:SHARED_ATTRIBUTE]->(otherUser:User)
+    OPTIONAL MATCH (u)-[sharedRel:SHARED_EMAIL|SHARED_PHONE|SHARED_ADDRESS|SHARED_PAYMENT_METHOD]-(otherUser:User)
     WITH u, sentTransactions, receivedTransactions,
       collect(distinct {user: otherUser, relationshipType: type(sharedRel)}) as connectedUsers
 
