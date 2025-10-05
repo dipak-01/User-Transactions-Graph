@@ -26,17 +26,7 @@ async function getTransactionRelationships(req, res, next) {
   }
 }
 
-async function getFullGraph(req, res, next) {
-  try {
-    const graph = await relationshipService.getFullGraph();
-    res.json(graph);
-  } catch (error) {
-    next(error);
-  }
-}
-
 module.exports = {
   getUserRelationships,
   getTransactionRelationships,
-  getFullGraph,
 };

@@ -10,7 +10,6 @@ import Transactions from "./pages/Transactions";
 function App() {
   const [selectedEntity, setSelectedEntity] = useState(null);
 
-   
   const handleEntitySelect = (entity) => {
     setSelectedEntity(entity);
   };

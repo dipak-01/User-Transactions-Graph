@@ -9,6 +9,4 @@ router.get(
   relationshipController.getTransactionRelationships
 );
 
-router.get("/graph", relationshipController.getFullGraph);
-
 module.exports = router;
