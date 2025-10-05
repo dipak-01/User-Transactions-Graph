@@ -309,7 +309,6 @@ async function getTransactionRelationships(transactionId) {
   };
 }
 
-
 module.exports = {
   getUserRelationships,
   getTransactionRelationships,
