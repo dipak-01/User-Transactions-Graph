@@ -56,7 +56,7 @@ The system comes with a data generation script that can create both a small test
 Run the data generation script:
 
 ```bash
-docker-compose exec backend npm run generate-data
+docker compose exec backend npm run generate-data
 ```
 
 This command will:
@@ -393,5 +393,3 @@ user-transaction-graph/
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-# User-Transactions-Graph
-# User-Transactions-Graph
