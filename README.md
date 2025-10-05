@@ -40,7 +40,7 @@ Features:
 2. Start the application:
 
    ```bash
-   docker compose up --build
+   docker-compose up --build
    ```
 
 3. Access the application:
@@ -49,35 +49,6 @@ Features:
    - Neo4j Browser: [http://localhost:7474](http://localhost:7474)
      - Neo4j credentials: neo4j / password
 
-## Deploying to Vercel
-
-The repository now supports deploying both the frontend and backend as separate Vercel projects, with the database hosted on Neo4j Aura.
-
-### 1. Prepare Neo4j Aura
-
-Review `backend/.env.example` for the list of required variables (`NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, `NEO4J_DATABASE`, etc.) and provide your Aura-specific values when configuring Vercel.
-
-Set the same variables in the Vercel dashboard for the backend project.
-
-### 2. Deploy the backend API
-
-1. Create a new Vercel project and select this repository.
-2. When prompted for the root directory, choose `backend`.
-3. Accept the default build output (the included `vercel.json` routes every request to `api/index.js`).
-4. Set the environment variables listed above.
-5. Deploy. After deployment you will receive a URL such as `https://your-backend.vercel.app`—store this for the frontend configuration.
-
-> The backend automatically runs as an Express-powered serverless function thanks to `backend/api/index.js`.
-
-### 3. Deploy the frontend
-
-1. Create a second Vercel project pointing at the `frontend` directory.
-2. Build command: `npm run build`. Output directory: `dist`.
-3. In **Environment Variables**, set `VITE_API_BASE_URL` to the deployed backend URL (for example, `https://your-backend.vercel.app`).
-4. Deploy. The frontend will call the backend through the configured URL in production, while still using `http://localhost:3001` during local development when `VITE_API_BASE_URL` is unset.
-
-After both deployments finish, visit the frontend URL; it should load data from the Aura-backed API.
-
 ## Generating Sample Data
 
 The system comes with a data generation script that can create both a small test dataset and a large dataset with 10,000+ users and 100,000+ transactions.
@@ -85,17 +56,29 @@ The system comes with a data generation script that can create both a small test
 Run the data generation script:
 
 ```bash
-docker compose exec backend npm run generate-data
+docker-compose exec backend npm run generate-data
 ```
 
-This command will:
+By default the script generates ~250 users and 1,000 transactions. You can override the size with environment variables:
 
-1. Clear any existing data from Neo4j
-2. Create necessary constraints and indexes
-3. Generate a small demo dataset (5-10 users, 10-15 transactions)
-4. Ask if you want to generate the large dataset (10,000+ users, 100,000+ transactions)
+```bash
+# Example: create 5,000 users and 100,000 transactions with larger batch writes
+docker-compose exec backend \
+  bash -lc "USER_COUNT=5000 TRANSACTION_COUNT=100000 BATCH_SIZE=2000 npm run generate-data"
+```
 
-For the large dataset, press 'Y' when prompted. Note that generating the large dataset can take significant time and resources.
+What the script does on each run:
+
+1. Clears existing nodes and relationships in the connected Neo4j database.
+2. Generates faker-based users with a mix of shared attributes to mimic fraud rings.
+3. Generates the requested number of transactions with shared IP/device patterns.
+4. Writes everything to Neo4j in batches (default 1,000 records at a time).
+
+Performance tips for large datasets (50k+ transactions):
+
+- Increase `BATCH_SIZE` (e.g., 2000–5000) if the database has enough memory.
+- Run against a Neo4j Aura instance or a local instance with at least 4 GB RAM.
+- Expect the 100k transaction run to take several minutes; keep the terminal attached until you see "✅ Database seeded successfully".
 
 ## API Documentation
 
@@ -124,6 +107,7 @@ Get paginated list of users with optional filtering.
       "email": "john@example.com",
       "phone": "1234567890",
       "address": "123 Main St",
+      "paymentMethod": "Visa 4242********4242"
     }
     // ...more users
   ],
@@ -149,6 +133,7 @@ Create or update a user and automatically detect shared attributes.
   "email": "john@example.com",
   "phone": "1234567890",
   "address": "123 Main St",
+  "paymentMethod": "Visa 4242********4242"
 }
 ```
 
@@ -162,6 +147,7 @@ Create or update a user and automatically detect shared attributes.
     "email": "john@example.com",
     "phone": "1234567890",
     "address": "123 Main St",
+    "paymentMethod": "Visa 4242********4242"
   },
   "message": "User created or updated successfully"
 }
@@ -180,6 +166,7 @@ Get a specific user by ID.
   "email": "john@example.com",
   "phone": "1234567890",
   "address": "123 Main St",
+  "paymentMethod": "Visa 4242********4242"
 }
 ```
 
@@ -297,6 +284,7 @@ Get all connected users and transactions for a given user.
         "email": "john@example.com",
         "phone": "1234567890",
         "address": "123 Main St",
+        "paymentMethod": "Visa 4242********4242"
       }
     }
     // ...more nodes (users and transactions)
@@ -354,7 +342,7 @@ Get all linked users and transactions for a given transaction.
 
 ### Nodes
 
-- `:User` — properties: `id`, `name`, `email`, `phone`, `address`
+- `:User` — properties: `id`, `name`, `email`, `phone`, `address`, `paymentMethod`
 - `:Transaction` — properties: `id`, `amount`, `timestamp`, `ip`, `deviceId`, `senderId`, `receiverId`
 
 ### Relationships
@@ -380,14 +368,10 @@ user-transaction-graph/
 │   │   ├── routes/            # API routes
 │   │   ├── services/          # Business logic
 │   │   ├── utils/             # Utility functions
-│   │   ├── app.js             # Express application (used by serverless + local)
-│   │   └── server.js          # Local development entrypoint
-│   ├── api/index.js           # Vercel serverless handler
-│   ├── vercel.json            # Vercel configuration for backend routing
+│   │   └── app.js            # Express application
 │   ├── data/
 │   │   └── generateData.js    # Data generation script
 │   ├── Dockerfile
-│   ├── .env.example
 │   └── package.json
 ├── frontend/
 │   ├── src/
@@ -400,7 +384,6 @@ user-transaction-graph/
 │   ├── postcss.config.js
 │   ├── vite.config.js
 │   ├── Dockerfile
-│   ├── .env.example
 │   └── package.json
 ├── docker-compose.yml
 └── README.md
@@ -427,7 +410,5 @@ user-transaction-graph/
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
 # User-Transactions-Graph
-
 # User-Transactions-Graph

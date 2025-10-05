@@ -1,269 +1,233 @@
 require("dotenv").config();
 const waitOn = require("wait-on");
 const neo4j = require("neo4j-driver");
-const {
-  initializeNeo4jDriver,
-  closeNeo4jDriver,
-} = require("../src/utils/neo4jDriver");
+const faker = require("faker");
 
+const DEFAULT_USER_COUNT = parseInt(process.env.USER_COUNT || "250", 10);
+const DEFAULT_TRANSACTION_COUNT = parseInt(
+  process.env.TRANSACTION_COUNT || "1000",
+  10
+);
+const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || "1000", 10);
+const ATTRIBUTE_EDGE_LIMIT = parseInt(
+  process.env.ATTRIBUTE_EDGE_LIMIT || "1000",
+  10
+);
 
 const getNeo4jDriver = () => {
   const uri = process.env.NEO4J_URI || "bolt://neo4j:7687";
-  const user = process.env.NEO4J_USER || "neo4j";
-  const password = process.env.NEO4J_PASSWORD || "flagright";
+  const user = process.env.NEO4J_USERNAME || process.env.NEO4J_USER || "neo4j";
+  const password =
+    process.env.NEO4J_PASSWORD || process.env.NEO4J_PASS || "password";
 
   return neo4j.driver(uri, neo4j.auth.basic(user, password));
 };
 
-// Sample data  
-const users = [
-  {
-    id: "u1",
-    name: "Alice",
-    email: "shared1@email.com",
-    phone: "1111",
-    address: "A Street",
-  },
-  {
-    id: "u2",
-    name: "Bob",
-    email: "shared1@email.com",
-    phone: "2222",
-    address: "B Street",
-  },
-  {
-    id: "u3",
-    name: "Charlie",
-    email: "charlie@email.com",
-    phone: "3333",
-    address: "C Street",
-  },
-  {
-    id: "u4",
-    name: "David",
-    email: "david@email.com",
-    phone: "4444",
-    address: "D Street",
-  },
-  {
-    id: "u5",
-    name: "Eva",
-    email: "eva@email.com",
-    phone: "5555",
-    address: "E Street",
-  },
-  {
-    id: "u6",
-    name: "Frank",
-    email: "shared2@email.com",
-    phone: "6666",
-    address: "F Street",
-  },
-  {
-    id: "u7",
-    name: "Grace",
-    email: "shared2@email.com",
-    phone: "7777",
-    address: "G Street",
-  },
-  {
-    id: "u8",
-    name: "Henry",
-    email: "henry@email.com",
-    phone: "8888",
-    address: "H Street",
-  },
-];
+const randomSharedValue = (valuePool, chance) =>
+  Math.random() < chance
+    ? faker.random.arrayElement(valuePool)
+    : faker.random.alphaNumeric(12);
 
-const transactions = [
-  {
-    id: "t1",
-    senderId: "u1",
-    receiverId: "u2",
-    amount: 100,
-    ip: "192.168.0.1",
-    deviceId: "dev1",
-  },
-  {
-    id: "t2",
-    senderId: "u2",
-    receiverId: "u3",
-    amount: 200,
-    ip: "192.168.0.2",
-    deviceId: "dev2",
-  },
-  {
-    id: "t3",
-    senderId: "u3",
-    receiverId: "u4",
-    amount: 300,
-    ip: "192.168.0.3",
-    deviceId: "dev3",
-  },
-  {
-    id: "t4",
-    senderId: "u1",
-    receiverId: "u5",
-    amount: 400,
-    ip: "192.168.0.1",
-    deviceId: "dev4",
-  }, // same IP as t1
-  {
-    id: "t5",
-    senderId: "u4",
-    receiverId: "u6",
-    amount: 250,
-    ip: "192.168.0.5",
-    deviceId: "dev5",
-  },
-  {
-    id: "t6",
-    senderId: "u6",
-    receiverId: "u7",
-    amount: 150,
-    ip: "192.168.0.6",
-    deviceId: "dev6",
-  },
-  {
-    id: "t7",
-    senderId: "u7",
-    receiverId: "u8",
-    amount: 120,
-    ip: "192.168.0.7",
-    deviceId: "dev7",
-  },
-  {
-    id: "t8",
-    senderId: "u2",
-    receiverId: "u6",
-    amount: 130,
-    ip: "192.168.0.2",
-    deviceId: "dev8",
-  }, // same IP as t2
-  {
-    id: "t9",
-    senderId: "u5",
-    receiverId: "u1",
-    amount: 170,
-    ip: "192.168.0.9",
-    deviceId: "dev9",
-  },
-  {
-    id: "t10",
-    senderId: "u8",
-    receiverId: "u3",
-    amount: 300,
-    ip: "192.168.0.3",
-    deviceId: "dev10",
-  }, // same IP as t3
-  {
-    id: "t11",
-    senderId: "u6",
-    receiverId: "u4",
-    amount: 180,
-    ip: "192.168.0.6",
-    deviceId: "dev6",
-  }, // same devId as t6
-  {
-    id: "t12",
-    senderId: "u5",
-    receiverId: "u7",
-    amount: 190,
-    ip: "192.168.0.1",
-    deviceId: "dev1",
-  }, // same as t1
-];
+const generateUsers = (count) => {
+  const sharedEmails = Array.from({
+    length: Math.max(2, Math.floor(count * 0.02)),
+  }).map(() => faker.internet.email());
+  const sharedPhones = Array.from({
+    length: Math.max(2, Math.floor(count * 0.02)),
+  }).map(() => faker.phone.phoneNumber());
+  const sharedAddresses = Array.from({
+    length: Math.max(2, Math.floor(count * 0.02)),
+  }).map(() => faker.address.streetAddress());
+  const sharedPaymentMethods = Array.from({
+    length: Math.max(2, Math.floor(count * 0.015)),
+  }).map(() => faker.finance.accountName());
 
-const userLookup = users.reduce((acc, user) => {
-  acc[user.id] = user;
-  return acc;
-}, {});
+  return Array.from({ length: count }).map((_, index) => {
+    const id = `user-${index + 1}`;
+    return {
+      id,
+      name: faker.name.findName(),
+      email: randomSharedValue(sharedEmails, 0.05),
+      phone: randomSharedValue(sharedPhones, 0.04),
+      address: randomSharedValue(sharedAddresses, 0.03),
+      paymentMethod:
+        Math.random() < 0.03
+          ? faker.random.arrayElement(sharedPaymentMethods)
+          : faker.finance.accountName(),
+    };
+  });
+};
 
-const createUsers = async (session) => {
-  console.log("Creating users...");
-  for (const user of users) {
+const generateTransactions = (users, count) => {
+  const userIds = users.map((user) => user.id);
+  const devicePool = Array.from({
+    length: Math.max(30, Math.floor(users.length * 0.05)),
+  }).map((_, idx) => `device-${idx + 1}`);
+  const ipPool = Array.from({
+    length: Math.max(30, Math.floor(users.length * 0.04)),
+  }).map(() => faker.internet.ip());
+
+  return Array.from({ length: count }).map((_, index) => {
+    let senderId = faker.random.arrayElement(userIds);
+    let receiverId = faker.random.arrayElement(userIds);
+    while (receiverId === senderId) {
+      receiverId = faker.random.arrayElement(userIds);
+    }
+
+    const deviceId = faker.random.arrayElement(devicePool);
+    const ip = faker.random.arrayElement(ipPool);
+
+    return {
+      id: `txn-${index + 1}`,
+      amount: Number(faker.finance.amount(5, 5000, 2)),
+      senderId,
+      receiverId,
+      ip,
+      deviceId,
+      createdAt:
+        Date.now() -
+        faker.datatype.number({ min: 0, max: 1000 * 60 * 60 * 24 * 30 }),
+    };
+  });
+};
+
+const chunk = (arr, size) => {
+  const result = [];
+  for (let i = 0; i < arr.length; i += size) {
+    result.push(arr.slice(i, i + size));
+  }
+  return result;
+};
+
+const createUsers = async (session, users) => {
+  console.log(`Creating ${users.length} users in batches of ${BATCH_SIZE}...`);
+  for (const batch of chunk(users, BATCH_SIZE)) {
     await session.run(
-      `MERGE (u:User {id: $id})
-       SET u.name = $name, u.email = $email, u.phone = $phone, u.address = $address`,
-      user
+      `UNWIND $users AS user
+       MERGE (u:User {id: user.id})
+       SET u.name = user.name,
+           u.email = user.email,
+           u.phone = user.phone,
+           u.address = user.address,
+           u.paymentMethod = user.paymentMethod`,
+      { users: batch }
     );
   }
   console.log("Users created successfully.");
 };
 
-const linkSharedAttributes = async (session) => {
-  console.log("Linking shared email attributes...");
-  await session.run(`
-    MATCH (u1:User), (u2:User)
-    WHERE u1.id <> u2.id AND u1.email = u2.email
-    MERGE (u1)-[:SHARED_EMAIL]->(u2)
-  `);
-  console.log("Shared emails linked successfully.");
-};
-
-const createTransactions = async (session) => {
-  console.log("Creating transactions...");
-  for (const tx of transactions) {
-    const sender = userLookup[tx.senderId];
-    const receiver = userLookup[tx.receiverId];
-    const payload = {
-      ...tx,
-      senderName: sender ? sender.name : "",
-      receiverName: receiver ? receiver.name : "",
-    };
-
+const createTransactions = async (session, transactions) => {
+  console.log(
+    `Creating ${transactions.length} transactions in batches of ${BATCH_SIZE}...`
+  );
+  for (const batch of chunk(transactions, BATCH_SIZE)) {
     await session.run(
-      `MERGE (t:Transaction {id: $id})
-       SET t.amount = $amount,
-           t.ip = $ip,
-           t.deviceId = $deviceId,
-           t.senderId = $senderId,
-           t.receiverId = $receiverId,
-           t.senderName = $senderName,
-           t.receiverName = $receiverName`,
-      payload
-    );
-    await session.run(
-      `MATCH (u:User {id: $senderId}), (t:Transaction {id: $id})
-       MERGE (u)-[:DEBIT]->(t)`,
-      payload
-    );
-    await session.run(
-      `MATCH (u:User {id: $receiverId}), (t:Transaction {id: $id})
-       MERGE (u)-[:CREDIT]->(t)`,
-      payload
+      `UNWIND $transactions AS tx
+       MATCH (sender:User {id: tx.senderId})
+       MATCH (receiver:User {id: tx.receiverId})
+       MERGE (t:Transaction {id: tx.id})
+       SET t.amount = tx.amount,
+           t.ip = tx.ip,
+           t.deviceId = tx.deviceId,
+           t.senderId = tx.senderId,
+           t.receiverId = tx.receiverId,
+           t.createdAt = tx.createdAt
+       MERGE (sender)-[:DEBIT]->(t)
+       MERGE (receiver)-[:CREDIT]->(t)`,
+      { transactions: batch }
     );
   }
   console.log("Transactions created successfully.");
 };
 
+const linkUserAttribute = async (session, attribute, relationship) => {
+  await session.run(
+    `MATCH (u:User)
+     WHERE u.${attribute} IS NOT NULL
+     WITH u.${attribute} AS value, collect(u) AS users
+     WHERE size(users) > 1
+     UNWIND range(0, size(users) - 2) AS idx
+     WITH value, users, idx
+     LIMIT $edgeLimit
+     WITH users, idx
+     WITH users[idx] AS source, users[idx + 1] AS target
+     MERGE (source)-[:${relationship}]->(target)`,
+    { edgeLimit: neo4j.int(ATTRIBUTE_EDGE_LIMIT) }
+  );
+};
+
+const linkTransactionAttribute = async (session, attribute, relationship) => {
+  await session.run(
+    `MATCH (t:Transaction)
+     WHERE t.${attribute} IS NOT NULL
+     WITH t.${attribute} AS value, collect(t) AS txs
+     WHERE size(txs) > 1
+     UNWIND range(0, size(txs) - 2) AS idx
+     WITH value, txs, idx
+     LIMIT $edgeLimit
+     WITH txs, idx
+     WITH txs[idx] AS source, txs[idx + 1] AS target
+     MERGE (source)-[:${relationship}]->(target)`,
+    { edgeLimit: neo4j.int(ATTRIBUTE_EDGE_LIMIT) }
+  );
+};
+
+const linkSharedAttributes = async (session) => {
+  console.log("Linking shared attributes...");
+  await linkUserAttribute(session, "email", "SHARED_EMAIL");
+  await linkUserAttribute(session, "phone", "SHARED_PHONE");
+  await linkUserAttribute(session, "address", "SHARED_ADDRESS");
+  await linkUserAttribute(session, "paymentMethod", "SHARED_PAYMENT_METHOD");
+  console.log("Shared attributes linked successfully.");
+};
+
 const linkRelatedTransactions = async (session) => {
   console.log("Linking related transactions...");
-  await session.run(`
-    MATCH (t1:Transaction), (t2:Transaction) 
-    WHERE t1.id <> t2.id AND (t1.ip = t2.ip OR t1.deviceId = t2.deviceId) 
-    MERGE (t1)-[:RELATED_TO]->(t2)
-  `);
+  await linkTransactionAttribute(session, "ip", "SHARED_IP");
+  await linkTransactionAttribute(session, "deviceId", "SHARED_DEVICE");
   console.log("Related transactions linked successfully.");
 };
 
 const main = async () => {
   try {
+    const userCount = parseInt(
+      process.env.USER_COUNT || DEFAULT_USER_COUNT,
+      10
+    );
+    const transactionCount = parseInt(
+      process.env.TRANSACTION_COUNT || DEFAULT_TRANSACTION_COUNT,
+      10
+    );
+
     console.log("Waiting for Neo4j to be ready...");
-    await waitOn({ resources: ["tcp:neo4j:7687"], timeout: 30000 });
+    const waitResources = [];
+    if (process.env.NEO4J_URI?.startsWith("bolt://neo4j")) {
+      waitResources.push("tcp:neo4j:7687");
+    }
+    if (waitResources.length > 0) {
+      await waitOn({ resources: waitResources, timeout: 60000 });
+    }
 
-    console.log("Connecting to Neo4j...");
+    console.log("Generating users and transactions...");
+    const users = generateUsers(userCount);
+    const transactions = generateTransactions(users, transactionCount);
+
+    console.log(
+      `Connecting to Neo4j at ${
+        process.env.NEO4J_URI || "bolt://neo4j:7687"
+      }...`
+    );
     const driver = getNeo4jDriver();
-    const session = driver.session();
+    const session = driver.session({ defaultAccessMode: neo4j.session.WRITE });
 
-    console.log("Creating users...");
-    await createUsers(session);
-    console.log("Linking shared attributes...");
+    console.log("Clearing existing data...");
+    await session.run("MATCH (n) DETACH DELETE n");
+
+    await createUsers(session, users);
     await linkSharedAttributes(session);
-    console.log("Creating transactions...");
-    await createTransactions(session);
-    console.log("Linking related transactions...");
+    await createTransactions(session, transactions);
     await linkRelatedTransactions(session);
+
     console.log("✅ Database seeded successfully");
 
     await session.close();
@@ -274,5 +238,4 @@ const main = async () => {
   }
 };
 
- 
 main();
