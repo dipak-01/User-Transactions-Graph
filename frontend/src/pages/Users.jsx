@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaEdit, FaSync, FaUserPlus } from "react-icons/fa";
+import { FaEdit, FaFilter, FaSync, FaTimes, FaUserPlus } from "react-icons/fa";
 import Modal from "../components/Modal";
 import { createOrUpdateUser, getUsers } from "../services/userService";
 
@@ -9,6 +9,18 @@ function Users({ onEntitySelect }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const ITEMS_PER_PAGE = 10;
+  const DEFAULT_PAGINATION = useMemo(
+    () => ({ page: 1, totalPages: 1, totalItems: 0, limit: ITEMS_PER_PAGE }),
+    [ITEMS_PER_PAGE]
+  );
+  const [pagination, setPagination] = useState(DEFAULT_PAGINATION);
+  const filterDefaults = useMemo(
+    () => ({ name: "", email: "", phone: "" }),
+    []
+  );
+  const [filters, setFilters] = useState(() => ({ ...filterDefaults }));
+  const [activeFilters, setActiveFilters] = useState(() => ({}));
   const emptyUser = {
     id: "",
     name: "",
@@ -22,25 +34,106 @@ function Users({ onEntitySelect }) {
   const [editingUser, setEditingUser] = useState(emptyUser);
   const [formSubmitting, setFormSubmitting] = useState(false);
 
+  const sanitizeFilters = (rawFilters = {}) => {
+    return Object.entries(rawFilters).reduce((acc, [key, value]) => {
+      const trimmed = (value ?? "").toString().trim();
+      if (trimmed) {
+        acc[key] = trimmed;
+      }
+      return acc;
+    }, {});
+  };
+
+  const areFiltersEqual = (a = {}, b = {}) => {
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+    if (aKeys.length !== bKeys.length) {
+      return false;
+    }
+    return aKeys.every((key) => a[key] === b[key]);
+  };
+
   useEffect(() => {
-    loadUsers();
+    loadUsers(1);
   }, []);
 
-  const loadUsers = async () => {
+  const loadUsers = async (page = 1, filtersOverride = activeFilters) => {
     setLoading(true);
     setError(null);
 
+    const sanitizedFilters = sanitizeFilters(filtersOverride);
+
     try {
-      const response = await getUsers();
+      setActiveFilters((prev) =>
+        areFiltersEqual(prev, sanitizedFilters) ? prev : sanitizedFilters
+      );
+
+      const response = await getUsers(page, ITEMS_PER_PAGE, sanitizedFilters);
 
       setUsers(Array.isArray(response?.data) ? response.data : []);
+      setPagination(
+        response?.pagination && typeof response.pagination === "object"
+          ? {
+              page: response.pagination.page || page,
+              totalPages: response.pagination.totalPages || 1,
+              totalItems: response.pagination.totalItems || 0,
+              limit: response.pagination.limit || ITEMS_PER_PAGE,
+            }
+          : { ...DEFAULT_PAGINATION, page }
+      );
     } catch (err) {
       console.error("Error fetching users:", err);
       setError("Failed to fetch users. Please try again.");
       setUsers([]);
+      setPagination({ ...DEFAULT_PAGINATION, page });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFilterInputChange = (event) => {
+    const { name, value } = event.target;
+    setFilters((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFilterSubmit = async (event) => {
+    event.preventDefault();
+    const sanitized = sanitizeFilters(filters);
+    setActiveFilters((prev) =>
+      areFiltersEqual(prev, sanitized) ? prev : sanitized
+    );
+    await loadUsers(1, sanitized);
+  };
+
+  const handleFilterReset = async () => {
+    const resetFilters = { ...filterDefaults };
+    setFilters(resetFilters);
+    setActiveFilters({});
+    await loadUsers(1, {});
+  };
+
+  const isFilterDirty = useMemo(
+    () =>
+      Object.values(filters).some((value) => value && value.toString().trim()),
+    [filters]
+  );
+
+  const hasActiveFilters = useMemo(
+    () => Object.keys(activeFilters).length > 0,
+    [activeFilters]
+  );
+
+  const handlePageChange = (nextPage) => {
+    const targetPage = Math.min(
+      Math.max(nextPage, 1),
+      Math.max(pagination.totalPages, 1)
+    );
+
+    if (targetPage === pagination.page) {
+      return;
+    }
+
+    loadUsers(targetPage);
   };
 
   const openCreateModal = () => {
@@ -85,7 +178,7 @@ function Users({ onEntitySelect }) {
       setFormSubmitting(true);
       await createOrUpdateUser(editingUser);
       closeModal();
-      await loadUsers();
+      await loadUsers(pagination.page || 1);
     } catch (err) {
       console.error("Failed to save user:", err);
       alert(
@@ -121,7 +214,7 @@ function Users({ onEntitySelect }) {
               <FaUserPlus /> Add user
             </button>
             <button
-              onClick={loadUsers}
+              onClick={() => loadUsers(pagination.page || 1)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition"
             >
               <FaSync /> Refresh
@@ -248,6 +341,76 @@ function Users({ onEntitySelect }) {
         )}
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
+          <form
+            onSubmit={handleFilterSubmit}
+            className="border-b border-slate-800 bg-slate-900/80 px-6 py-4"
+          >
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={filters.name}
+                  onChange={handleFilterInputChange}
+                  placeholder="Search by name"
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950 py-2 px-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={filters.email}
+                  onChange={handleFilterInputChange}
+                  placeholder="Search by email"
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950 py-2 px-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">
+                  Phone
+                </label>
+                <input
+                  type="text"
+                  name="phone"
+                  value={filters.phone}
+                  onChange={handleFilterInputChange}
+                  placeholder="Search by phone"
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950 py-2 px-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <button
+                  type="submit"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={!isFilterDirty && !hasActiveFilters}
+                >
+                  <FaFilter />
+                  Apply filters
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFilterReset}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!isFilterDirty && !hasActiveFilters}
+                >
+                  <FaTimes />
+                  Clear
+                </button>
+              </div>
+            </div>
+            {hasActiveFilters && (
+              <p className="mt-3 text-xs text-indigo-300">
+                Showing results for active filters.
+              </p>
+            )}
+          </form>
           {loading ? (
             <div className="p-12 text-center text-slate-400">
               Loading users...
@@ -316,6 +479,36 @@ function Users({ onEntitySelect }) {
                   ))}
                 </tbody>
               </table>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border-t border-slate-800 bg-slate-900/80">
+                <div className="text-sm text-slate-400">
+                  Page {pagination.page} of {Math.max(pagination.totalPages, 1)}
+                  {typeof pagination.totalItems === "number" &&
+                    pagination.totalItems >= 0 && (
+                      <span className="ml-2">
+                        · {pagination.totalItems} users total
+                      </span>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePageChange((pagination.page || 1) - 1)}
+                    disabled={pagination.page <= 1}
+                    className="px-3 py-2 rounded-lg border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => handlePageChange((pagination.page || 1) + 1)}
+                    disabled={
+                      pagination.page >= pagination.totalPages ||
+                      pagination.totalPages <= 1
+                    }
+                    className="px-3 py-2 rounded-lg border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

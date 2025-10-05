@@ -67,6 +67,8 @@ docker-compose exec backend \
   bash -lc "USER_COUNT=5000 TRANSACTION_COUNT=100000 BATCH_SIZE=2000 npm run generate-data"
 ```
 
+> **Note:** For large runs the script may bump `USER_COUNT` automatically to honor the per-user limits—check the console output for any warnings.
+
 What the script does on each run:
 
 1. Clears existing nodes and relationships in the connected Neo4j database.

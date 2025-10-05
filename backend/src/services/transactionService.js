@@ -4,8 +4,12 @@ const { runQuery } = require("../utils/neo4jDriver");
 // get list of transactions
 
 async function getTransactions({ page = 1, limit = 10, filters = {} }) {
-  const pageInt = parseInt(page, 10);
-  const limitInt = parseInt(limit, 10);
+  const parsedPage = parseInt(page, 10);
+  const parsedLimit = parseInt(limit, 10);
+  const pageInt = Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
+  const limitInt = Number.isNaN(parsedLimit)
+    ? 10
+    : Math.min(Math.max(parsedLimit, 1), 10);
   const skip = (pageInt - 1) * limitInt;
 
   let query = "MATCH (t:Transaction) ";

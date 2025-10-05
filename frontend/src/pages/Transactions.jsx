@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaEdit, FaFilter, FaPlusCircle, FaSync } from "react-icons/fa";
 import Modal from "../components/Modal";
@@ -18,6 +18,12 @@ function Transactions({ onEntitySelect }) {
     ip: "",
     deviceId: "",
   });
+  const ITEMS_PER_PAGE = 10;
+  const DEFAULT_PAGINATION = useMemo(
+    () => ({ page: 1, totalPages: 1, totalItems: 0, limit: ITEMS_PER_PAGE }),
+    [ITEMS_PER_PAGE]
+  );
+  const [pagination, setPagination] = useState(DEFAULT_PAGINATION);
   const defaultTimestamp = () => new Date().toISOString().slice(0, 16);
   const buildEmptyTransaction = () => ({
     id: "",
@@ -34,6 +40,7 @@ function Transactions({ onEntitySelect }) {
     buildEmptyTransaction
   );
   const [formSubmitting, setFormSubmitting] = useState(false);
+  const [formStatus, setFormStatus] = useState(null);
 
   const toDatetimeLocal = (value) => {
     if (!value) {
@@ -52,10 +59,10 @@ function Transactions({ onEntitySelect }) {
   };
 
   useEffect(() => {
-    loadTransactions();
+    loadTransactions(1);
   }, []);
 
-  const loadTransactions = async (overrideFilters = filters) => {
+  const loadTransactions = async (page = 1, overrideFilters = filters) => {
     setLoading(true);
     setError(null);
 
@@ -69,16 +76,42 @@ function Transactions({ onEntitySelect }) {
       if (overrideFilters.deviceId)
         activeFilters.deviceId = overrideFilters.deviceId;
 
-      const response = await getTransactions(1, 10, activeFilters);
+      const response = await getTransactions(
+        page,
+        ITEMS_PER_PAGE,
+        activeFilters
+      );
 
       setTransactions(Array.isArray(response?.data) ? response.data : []);
+      setPagination(
+        response?.pagination && typeof response.pagination === "object"
+          ? {
+              page: response.pagination.page || page,
+              totalPages: response.pagination.totalPages || 1,
+              totalItems: response.pagination.totalItems || 0,
+              limit: response.pagination.limit || ITEMS_PER_PAGE,
+            }
+          : { ...DEFAULT_PAGINATION, page }
+      );
     } catch (err) {
       console.error("Error fetching transactions:", err);
       setError("Failed to fetch transactions. Please try again.");
       setTransactions([]);
+      setPagination({ ...DEFAULT_PAGINATION, page });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePageChange = (nextPage) => {
+    const totalPages = Math.max(pagination.totalPages, 1);
+    const targetPage = Math.min(Math.max(nextPage, 1), totalPages);
+
+    if (targetPage === pagination.page) {
+      return;
+    }
+
+    loadTransactions(targetPage);
   };
 
   const handleFilterChange = (event) => {
@@ -87,13 +120,13 @@ function Transactions({ onEntitySelect }) {
   };
 
   const applyFilters = () => {
-    loadTransactions(filters);
+    loadTransactions(1, filters);
   };
 
   const clearFilters = () => {
     const cleared = { minAmount: "", maxAmount: "", ip: "", deviceId: "" };
     setFilters(cleared);
-    loadTransactions(cleared);
+    loadTransactions(1, cleared);
   };
 
   const openCreateModal = () => {
@@ -132,6 +165,8 @@ function Transactions({ onEntitySelect }) {
 
   const handleTransactionSubmit = async (event) => {
     event.preventDefault();
+
+    setFormStatus(null);
 
     if (!editingTransaction.id || !editingTransaction.amount) {
       setFormStatus({
@@ -178,7 +213,7 @@ function Transactions({ onEntitySelect }) {
         amount: amountValue,
         timestamp: timestampValue.toISOString(),
       });
-      await loadTransactions();
+      await loadTransactions(pagination.page || 1);
       closeModal();
     } catch (err) {
       console.error("Failed to save transaction:", err);
@@ -245,7 +280,7 @@ function Transactions({ onEntitySelect }) {
               <FaPlusCircle /> Add transaction
             </button>
             <button
-              onClick={loadTransactions}
+              onClick={() => loadTransactions(pagination.page || 1)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition"
             >
               <FaSync /> Refresh
@@ -285,6 +320,17 @@ function Transactions({ onEntitySelect }) {
               className="space-y-4"
               onSubmit={handleTransactionSubmit}
             >
+              {formStatus && (
+                <div
+                  className={`text-sm rounded-lg px-3 py-2 ${
+                    formStatus.type === "error"
+                      ? "bg-red-500/10 text-red-300 border border-red-500/40"
+                      : "bg-emerald-500/10 text-emerald-300 border border-emerald-500/40"
+                  }`}
+                >
+                  {formStatus.message}
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-400 mb-1">
@@ -553,6 +599,36 @@ function Transactions({ onEntitySelect }) {
                   ))}
                 </tbody>
               </table>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border-t border-slate-800 bg-slate-900/80">
+                <div className="text-sm text-slate-400">
+                  Page {pagination.page} of {Math.max(pagination.totalPages, 1)}
+                  {typeof pagination.totalItems === "number" &&
+                    pagination.totalItems >= 0 && (
+                      <span className="ml-2">
+                        · {pagination.totalItems} transactions total
+                      </span>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePageChange((pagination.page || 1) - 1)}
+                    disabled={pagination.page <= 1}
+                    className="px-3 py-2 rounded-lg border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => handlePageChange((pagination.page || 1) + 1)}
+                    disabled={
+                      pagination.page >= pagination.totalPages ||
+                      pagination.totalPages <= 1
+                    }
+                    className="px-3 py-2 rounded-lg border border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
