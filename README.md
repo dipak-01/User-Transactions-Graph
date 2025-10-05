@@ -40,7 +40,7 @@ Features:
 2. Start the application:
 
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
 
 3. Access the application:
@@ -95,7 +95,6 @@ Get paginated list of users with optional filtering.
       "email": "john@example.com",
       "phone": "1234567890",
       "address": "123 Main St",
-      "paymentMethod": "Visa 4242********4242"
     }
     // ...more users
   ],
@@ -121,7 +120,6 @@ Create or update a user and automatically detect shared attributes.
   "email": "john@example.com",
   "phone": "1234567890",
   "address": "123 Main St",
-  "paymentMethod": "Visa 4242********4242"
 }
 ```
 
@@ -135,7 +133,6 @@ Create or update a user and automatically detect shared attributes.
     "email": "john@example.com",
     "phone": "1234567890",
     "address": "123 Main St",
-    "paymentMethod": "Visa 4242********4242"
   },
   "message": "User created or updated successfully"
 }
@@ -154,7 +151,6 @@ Get a specific user by ID.
   "email": "john@example.com",
   "phone": "1234567890",
   "address": "123 Main St",
-  "paymentMethod": "Visa 4242********4242"
 }
 ```
 
@@ -272,7 +268,6 @@ Get all connected users and transactions for a given user.
         "email": "john@example.com",
         "phone": "1234567890",
         "address": "123 Main St",
-        "paymentMethod": "Visa 4242********4242"
       }
     }
     // ...more nodes (users and transactions)
@@ -330,7 +325,7 @@ Get all linked users and transactions for a given transaction.
 
 ### Nodes
 
-- `:User` — properties: `id`, `name`, `email`, `phone`, `address`, `paymentMethod`
+- `:User` — properties: `id`, `name`, `email`, `phone`, `address`
 - `:Transaction` — properties: `id`, `amount`, `timestamp`, `ip`, `deviceId`, `senderId`, `receiverId`
 
 ### Relationships
