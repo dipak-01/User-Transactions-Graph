@@ -169,7 +169,7 @@ async function getTransactionRelationships(transactionId) {
     OPTIONAL MATCH (receiver:User)-[:CREDIT]->(t)
     WITH t, sender, receiver
 
-    OPTIONAL MATCH (t)-[:RELATED_TO]-(related:Transaction)
+    OPTIONAL MATCH (t)-[sharedRel:RELATED_TO|SHARED_IP|SHARED_DEVICE]-(related:Transaction)
     OPTIONAL MATCH (relatedSender:User)-[:DEBIT]->(related)
     OPTIONAL MATCH (relatedReceiver:User)-[:CREDIT]->(related)
     WITH t, sender, receiver,
@@ -177,7 +177,7 @@ async function getTransactionRelationships(transactionId) {
         transaction: related,
         sender: relatedSender,
         receiver: relatedReceiver,
-        relationshipType: "RELATED_TO"
+        relationshipType: coalesce(type(sharedRel), "RELATED_TO")
       }) as connectedTransactions
 
     RETURN {
