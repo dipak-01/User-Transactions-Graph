@@ -65,8 +65,11 @@ async function getUsers({ page = 1, limit = 10, filters = {}, sort = {} }) {
     query += `WHERE ${whereConditions.join(" AND ")} `;
   }
 
-  const { field: sortField, direction: sortDirection, numericString } =
-    resolveUserSort(sort);
+  const {
+    field: sortField,
+    direction: sortDirection,
+    numericString,
+  } = resolveUserSort(sort);
 
   const orderClauses = [];
   if (numericString) {
