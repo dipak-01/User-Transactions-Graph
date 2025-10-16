@@ -12,10 +12,28 @@ const TRANSACTION_SORT_MAP = {
     },
   },
   amount: { field: "t.amount" },
-  senderid: { field: "t.senderId" },
-  receiverid: { field: "t.receiverId" },
+  senderid: {
+    field: "t.senderId",
+    numericString: {
+      regex: "^user-[0-9]+$",
+      numericExpr: "toFloat(replace(%FIELD%, 'user-', ''))",
+    },
+  },
+  receiverid: {
+    field: "t.receiverId",
+    numericString: {
+      regex: "^user-[0-9]+$",
+      numericExpr: "toFloat(replace(%FIELD%, 'user-', ''))",
+    },
+  },
   ip: { field: "t.ip" },
-  deviceid: { field: "t.deviceId" },
+  deviceid: {
+    field: "t.deviceId",
+    numericString: {
+      regex: "^device-[0-9]+$",
+      numericExpr: "toFloat(replace(%FIELD%, 'device-', ''))",
+    },
+  },
   timestamp: { field: "t.timestamp" },
   createdat: { field: "t.createdAt" },
 };
