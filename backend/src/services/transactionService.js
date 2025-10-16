@@ -4,30 +4,32 @@ const { runQuery } = require("../utils/neo4jDriver");
 // get list of transactions
 
 const TRANSACTION_SORT_MAP = {
-  id: "t.id",
-  amount: "t.amount",
-  senderid: "t.senderId",
-  receiverid: "t.receiverId",
-  ip: "t.ip",
-  deviceid: "t.deviceId",
-  timestamp: "t.timestamp",
-  createdat: "t.createdAt",
+  id: { field: "t.id", numericString: true },
+  amount: { field: "t.amount" },
+  senderid: { field: "t.senderId" },
+  receiverid: { field: "t.receiverId" },
+  ip: { field: "t.ip" },
+  deviceid: { field: "t.deviceId" },
+  timestamp: { field: "t.timestamp" },
+  createdat: { field: "t.createdAt" },
 };
+
+const DEFAULT_TRANSACTION_SORT = TRANSACTION_SORT_MAP.timestamp;
 
 function resolveTransactionSort(sort = {}) {
   if (!sort || typeof sort !== "object") {
-    return { field: TRANSACTION_SORT_MAP.timestamp, direction: "DESC" };
+    return { ...DEFAULT_TRANSACTION_SORT, direction: "DESC" };
   }
 
   const rawField = typeof sort.field === "string" ? sort.field.trim() : "";
   const lowerField = rawField.toLowerCase();
   const resolvedField =
-    TRANSACTION_SORT_MAP[lowerField] || TRANSACTION_SORT_MAP.timestamp;
+    TRANSACTION_SORT_MAP[lowerField] || DEFAULT_TRANSACTION_SORT;
 
   const rawOrder = typeof sort.order === "string" ? sort.order.trim() : "";
   const direction = rawOrder.toLowerCase() === "asc" ? "ASC" : "DESC";
 
-  return { field: resolvedField, direction };
+  return { ...resolvedField, direction };
 }
 
 async function getTransactions({
@@ -76,9 +78,21 @@ async function getTransactions({
     query += `WHERE ${whereConditions.join(" AND ")} `;
   }
 
-  const { field: sortField, direction: sortDirection } =
+  const { field: sortField, direction: sortDirection, numericString } =
     resolveTransactionSort(sort);
-  const orderClauses = [`${sortField} ${sortDirection}`];
+  const orderClauses = [];
+  if (numericString) {
+    const numericRegex = "^-?[0-9]+(\\.[0-9]+)?$";
+    orderClauses.push(
+      `CASE WHEN ${sortField} =~ '${numericRegex}' THEN 0 ELSE 1 END ASC`
+    );
+    orderClauses.push(
+      `CASE WHEN ${sortField} =~ '${numericRegex}' THEN toFloat(${sortField}) ELSE null END ${sortDirection}`
+    );
+    orderClauses.push(`${sortField} ${sortDirection}`);
+  } else {
+    orderClauses.push(`${sortField} ${sortDirection}`);
+  }
   if (sortField !== "t.id") {
     orderClauses.push("t.id ASC");
   }
