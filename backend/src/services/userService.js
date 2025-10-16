@@ -8,12 +8,39 @@ const USER_SORT_MAP = {
   email: { field: "u.email" },
   phone: { field: "u.phone" },
   address: { field: "u.address" },
-  id: { field: "u.id", numericString: true },
+  id: {
+    field: "u.id",
+    numericString: {
+      regex: "^user-[0-9]+$",
+      numericExpr: "toFloat(replace(%FIELD%, 'user-', ''))",
+    },
+  },
   createdAt: { field: "u.createdAt" },
   updatedAt: { field: "u.updatedAt" },
 };
 
 const DEFAULT_USER_SORT = USER_SORT_MAP.name;
+
+function buildOrderClauses(field, direction, numericString) {
+  if (!numericString) {
+    return [`${field} ${direction}`];
+  }
+
+  const isObject = typeof numericString === "object" && numericString !== null;
+  const pattern = isObject && typeof numericString.regex === "string"
+    ? numericString.regex
+    : "^-?[0-9]+(\\.[0-9]+)?$";
+  const template = isObject && typeof numericString.numericExpr === "string"
+    ? numericString.numericExpr
+    : "toFloat(%FIELD%)";
+  const numericExpr = template.replace(/%FIELD%/g, field);
+
+  return [
+    `CASE WHEN ${field} =~ '${pattern}' THEN 0 ELSE 1 END ASC`,
+    `CASE WHEN ${field} =~ '${pattern}' THEN ${numericExpr} ELSE null END ${direction}`,
+    `${field} ${direction}`,
+  ];
+}
 
 function resolveUserSort(sort = {}) {
   if (!sort || typeof sort !== "object") {
@@ -65,25 +92,14 @@ async function getUsers({ page = 1, limit = 10, filters = {}, sort = {} }) {
     query += `WHERE ${whereConditions.join(" AND ")} `;
   }
 
-  const {
-    field: sortField,
-    direction: sortDirection,
-    numericString,
-  } = resolveUserSort(sort);
+  const { field: sortField, direction: sortDirection, numericString } =
+    resolveUserSort(sort);
 
-  const orderClauses = [];
-  if (numericString) {
-    const numericRegex = "^-?[0-9]+(\\.[0-9]+)?$";
-    orderClauses.push(
-      `CASE WHEN ${sortField} =~ '${numericRegex}' THEN 0 ELSE 1 END ASC`
-    );
-    orderClauses.push(
-      `CASE WHEN ${sortField} =~ '${numericRegex}' THEN toFloat(${sortField}) ELSE null END ${sortDirection}`
-    );
-    orderClauses.push(`${sortField} ${sortDirection}`);
-  } else {
-    orderClauses.push(`${sortField} ${sortDirection}`);
-  }
+  const orderClauses = buildOrderClauses(
+    sortField,
+    sortDirection,
+    numericString
+  );
   if (sortField !== "u.id") {
     orderClauses.push("u.id ASC");
   }
